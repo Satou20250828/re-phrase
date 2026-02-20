@@ -1,3 +1,4 @@
+# Creates rephrases linked to categories.
 class CreateRephrases < ActiveRecord::Migration[7.2]
   def change
     create_table :rephrases do |t|

@@ -15,15 +15,25 @@ RSpec.describe Category, type: :model do
 
     it 'is invalid without a name' do
       category = FactoryBot.build(:category, name: nil)
-      expect(category).not_to be_valid
+      expect(category).to be_invalid
+    end
+
+    it "adds a can't be blank error when name is missing" do
+      category = FactoryBot.build(:category, name: nil)
+      category.valid?
       expect(category.errors[:name]).to include("can't be blank")
     end
 
     it 'is invalid with a duplicate name' do
       FactoryBot.create(:category, name: 'business')
       duplicate = FactoryBot.build(:category, name: 'business')
+      expect(duplicate).to be_invalid
+    end
 
-      expect(duplicate).not_to be_valid
+    it 'adds a has already been taken error when name is duplicated' do
+      FactoryBot.create(:category, name: 'business')
+      duplicate = FactoryBot.build(:category, name: 'business')
+      duplicate.valid?
       expect(duplicate.errors[:name]).to include('has already been taken')
     end
   end

@@ -15,13 +15,23 @@ RSpec.describe SearchLog, type: :model do
 
     it 'is invalid without rephrase' do
       search_log = FactoryBot.build(:search_log, rephrase: nil)
-      expect(search_log).not_to be_valid
+      expect(search_log).to be_invalid
+    end
+
+    it 'adds a must exist error when rephrase is missing' do
+      search_log = FactoryBot.build(:search_log, rephrase: nil)
+      search_log.valid?
       expect(search_log.errors[:rephrase]).to include('must exist')
     end
 
     it 'is invalid without query' do
       search_log = FactoryBot.build(:search_log, query: nil)
-      expect(search_log).not_to be_valid
+      expect(search_log).to be_invalid
+    end
+
+    it "adds a can't be blank error when query is missing" do
+      search_log = FactoryBot.build(:search_log, query: nil)
+      search_log.valid?
       expect(search_log.errors[:query]).to include("can't be blank")
     end
   end

@@ -1,3 +1,4 @@
+# Category is a phrase grouping used to classify rephrases.
 class Category < ApplicationRecord
   has_many :rephrases, dependent: :destroy
 

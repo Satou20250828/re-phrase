@@ -20,13 +20,23 @@ RSpec.describe Rephrase, type: :model do
 
     it 'is invalid without category' do
       rephrase = FactoryBot.build(:rephrase, category: nil)
-      expect(rephrase).not_to be_valid
+      expect(rephrase).to be_invalid
+    end
+
+    it 'adds a must exist error when category is missing' do
+      rephrase = FactoryBot.build(:rephrase, category: nil)
+      rephrase.valid?
       expect(rephrase.errors[:category]).to include('must exist')
     end
 
     it 'is invalid without content' do
       rephrase = FactoryBot.build(:rephrase, content: nil)
-      expect(rephrase).not_to be_valid
+      expect(rephrase).to be_invalid
+    end
+
+    it "adds a can't be blank error when content is missing" do
+      rephrase = FactoryBot.build(:rephrase, content: nil)
+      rephrase.valid?
       expect(rephrase.errors[:content]).to include("can't be blank")
     end
   end

@@ -1,3 +1,4 @@
+# Creates search logs linked to rephrases.
 class CreateSearchLogs < ActiveRecord::Migration[7.2]
   def change
     create_table :search_logs do |t|
