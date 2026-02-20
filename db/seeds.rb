@@ -1,5 +1,6 @@
 categories_data = %w[ビジネス 接客 カジュアル]
 
+# rubocop:disable Rails/Output
 puts '--- カテゴリーの登録を開始します ---'
 categories = {}
 categories_data.each do |name|
@@ -41,3 +42,4 @@ end
 puts "\n完了！"
 puts "Category count: #{Category.count}"
 puts "Rephrase count: #{Rephrase.count}"
+# rubocop:enable Rails/Output
