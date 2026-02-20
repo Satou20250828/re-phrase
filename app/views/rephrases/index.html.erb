@@ -5,15 +5,25 @@
   </header>
 
   <%# 言い換え実行フォーム %>
-  <%= form_with url: rephrases_path, method: :post, class: "space-y-4 rounded-lg border p-4" do |form| %>
+  <%= form_with url: rephrases_path, method: :post, scope: :rephrase, class: "space-y-4 rounded-lg border p-4" do |form| %>
     <div class="space-y-1">
-      <%= form.label :query, "原文", class: "block text-sm font-medium" %>
-      <%= form.text_area :query, rows: 4, class: "w-full rounded border px-3 py-2" %>
+      <%= form.label :content, "原文", class: "block text-sm font-medium" %>
+      <%= form.text_area :content, rows: 4, class: "w-full rounded border px-3 py-2" %>
     </div>
 
-    <div class="space-y-1">
-      <%= form.label :category_id, "カテゴリID", class: "block text-sm font-medium" %>
-      <%= form.number_field :category_id, class: "w-full rounded border px-3 py-2" %>
+    <div class="grid gap-4 md:grid-cols-3">
+      <div class="space-y-1">
+        <%= form.label :scene, "シーン", class: "block text-sm font-medium" %>
+        <%= form.text_field :scene, class: "w-full rounded border px-3 py-2" %>
+      </div>
+      <div class="space-y-1">
+        <%= form.label :target, "相手", class: "block text-sm font-medium" %>
+        <%= form.text_field :target, class: "w-full rounded border px-3 py-2" %>
+      </div>
+      <div class="space-y-1">
+        <%= form.label :context, "状況", class: "block text-sm font-medium" %>
+        <%= form.text_field :context, class: "w-full rounded border px-3 py-2" %>
+      </div>
     </div>
 
     <%= form.submit "言い換える", class: "rounded bg-black px-4 py-2 text-white" %>
@@ -28,7 +38,7 @@
 
   <section class="space-y-3">
     <h2 class="text-lg font-semibold">最近の履歴</h2>
-    <div class="space-y-2">
+    <div id="history_list" class="space-y-2">
       <% @search_logs.each do |search_log| %>
         <%= render "history_item", search_log: search_log %>
       <% end %>
