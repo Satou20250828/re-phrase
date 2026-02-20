@@ -1,9 +1,45 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+categories_data = %w[ビジネス 接客 カジュアル]
+
+# rubocop:disable Rails/Output
+puts '--- カテゴリーの登録を開始します ---'
+categories = {}
+categories_data.each do |name|
+  categories[name] = Category.find_or_create_by!(name: name)
+  puts "Created Category: #{name}"
+end
+
+rephrases_data = [
+  ['ビジネス', '「わかりました」→「承知いたしました」'],
+  ['ビジネス', '「すみません」→「失礼いたしました」'],
+  ['ビジネス', '「後でやります」→「追って対応いたします」'],
+  ['ビジネス', '「確認します」→「確認のうえご連絡いたします」'],
+  ['ビジネス', '「できません」→「いたしかねます」'],
+  ['ビジネス', '「誰ですか？」→「どちら様でしょうか？」'],
+  ['ビジネス', '「座ってください」→「お掛けください」'],
+  ['ビジネス', '「急いでください」→「お急ぎいただけますと幸いです」'],
+  ['接客', '「ちょっと待って」→「少々お待ちいただけますでしょうか」'],
+  ['接客', '「こっちに来て」→「こちらへご案内いたします」'],
+  ['接客', '「何にしますか？」→「ご注文はお決まりでしょうか？」'],
+  ['接客', '「いいですよ」→「かしこまりました」'],
+  ['接客', '「これおすすめです」→「こちらがおすすめでございます」'],
+  ['接客', '「終わりました」→「お下げしてもよろしいでしょうか」'],
+  ['カジュアル', '「まじで？」→「本当ですか？」'],
+  ['カジュアル', '「うざい」→「少し困っています」'],
+  ['カジュアル', '「無理」→「難しいかもしれません」'],
+  ['カジュアル', '「どうする？」→「どうしようか？」'],
+  ['カジュアル', '「適当でいいよ」→「お任せします」'],
+  ['カジュアル', '「ありがとう」→「本当にありがとう」']
+]
+
+puts "\n--- 言い換えデータの登録を開始します ---"
+rephrases_data.each do |category_name, content|
+  Rephrase.find_or_create_by!(
+    category: categories.fetch(category_name),
+    content: content
+  )
+end
+
+puts "\n完了！"
+puts "Category count: #{Category.count}"
+puts "Rephrase count: #{Rephrase.count}"
+# rubocop:enable Rails/Output
