@@ -5,10 +5,10 @@
   </header>
 
   <%# 言い換え実行フォーム %>
-  <%= form_with url: rephrases_path, method: :post, scope: :rephrase, class: "space-y-4 rounded-lg border p-4" do |form| %>
+  <%= form_with url: rephrases_path, method: :post, scope: :rephrase, class: "space-y-4 rounded-xl border bg-white p-5 shadow-sm", data: { controller: "rephrase" } do |form| %>
     <div class="space-y-1">
       <%= form.label :content, "原文", class: "block text-sm font-medium" %>
-      <%= form.text_area :content, rows: 4, class: "w-full rounded border px-3 py-2" %>
+      <%= form.text_area :content, rows: 5, class: "w-full rounded-lg border px-3 py-2", data: { rephrase_target: "content" } %>
     </div>
 
     <div class="grid gap-4 md:grid-cols-3">
@@ -26,14 +26,26 @@
       </div>
     </div>
 
-    <%= form.submit "言い換える", class: "rounded bg-black px-4 py-2 text-white" %>
+    <div class="flex items-center gap-3">
+      <%= form.submit "言い換える", class: "rounded-lg bg-black px-4 py-2 text-white" %>
+      <button type="button" class="rounded-lg border px-4 py-2 text-sm" data-action="rephrase#clearContent">クリア</button>
+    </div>
   <% end %>
 
   <%# Turboで差し替える結果表示領域 %>
   <%= turbo_frame_tag "rephrase_result" do %>
-    <div class="rounded-lg border border-dashed p-4 text-sm text-gray-500">
-      ここに言い換え結果が表示されます。
-    </div>
+    <section class="rounded-xl border border-dashed bg-white p-5 text-sm text-gray-500">
+      <div class="grid gap-4 md:grid-cols-2">
+        <article class="rounded-lg border bg-gray-50 p-4">
+          <p class="text-xs font-semibold tracking-wide text-gray-500">BEFORE</p>
+          <p class="mt-2 text-sm">ここに原文が表示されます。</p>
+        </article>
+        <article class="rounded-lg border bg-gray-50 p-4">
+          <p class="text-xs font-semibold tracking-wide text-gray-500">AFTER</p>
+          <p class="mt-2 text-sm">ここに提案結果が表示されます。</p>
+        </article>
+      </div>
+    </section>
   <% end %>
 
   <section class="space-y-3">
