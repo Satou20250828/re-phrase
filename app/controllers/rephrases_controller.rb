@@ -5,9 +5,7 @@ class RephrasesController < ApplicationController
 
     result = PhraseConverterService.new(query: params[:q], category_id: params[:category_id]).call
     assign_result_values(result)
-    persist_search_log(result)
-  rescue StandardError => e
-    Rails.logger.error("SearchLog persistence failed: #{e.class} #{e.message}")
+    save_search_log(result)
   end
 
   private
@@ -18,12 +16,14 @@ class RephrasesController < ApplicationController
     @hit_type = result[:hit_type]
   end
 
-  def persist_search_log(result)
+  def save_search_log(result)
     SearchLog.create!(
       query: params[:q],
       converted_text: @result_text,
       category_id: params[:category_id],
       **result.slice(:hit_type, :safety_mode_applied)
     )
+  rescue StandardError => e
+    Rails.logger.error("SearchLog persistence failed: #{e.class} #{e.message}")
   end
 end
