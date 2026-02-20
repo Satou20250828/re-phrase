@@ -18,10 +18,25 @@ RSpec.describe Rephrase, type: :model do
       expect(FactoryBot.build(:rephrase)).to be_valid
     end
 
+    it 'is invalid without category' do
+      rephrase = FactoryBot.build(:rephrase, category: nil)
+      expect(rephrase).not_to be_valid
+      expect(rephrase.errors[:category]).to include('must exist')
+    end
+
     it 'is invalid without content' do
       rephrase = FactoryBot.build(:rephrase, content: nil)
       expect(rephrase).not_to be_valid
       expect(rephrase.errors[:content]).to include("can't be blank")
+    end
+  end
+
+  describe 'dependent destroy' do
+    it 'deletes associated search_logs when rephrase is destroyed' do
+      rephrase = FactoryBot.create(:rephrase)
+      FactoryBot.create(:search_log, rephrase: rephrase)
+
+      expect { rephrase.destroy }.to change(SearchLog, :count).by(-1)
     end
   end
 end

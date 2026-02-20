@@ -13,6 +13,12 @@ RSpec.describe SearchLog, type: :model do
       expect(FactoryBot.build(:search_log)).to be_valid
     end
 
+    it 'is invalid without rephrase' do
+      search_log = FactoryBot.build(:search_log, rephrase: nil)
+      expect(search_log).not_to be_valid
+      expect(search_log.errors[:rephrase]).to include('must exist')
+    end
+
     it 'is invalid without query' do
       search_log = FactoryBot.build(:search_log, query: nil)
       expect(search_log).not_to be_valid

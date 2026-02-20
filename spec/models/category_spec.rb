@@ -27,4 +27,13 @@ RSpec.describe Category, type: :model do
       expect(duplicate.errors[:name]).to include('has already been taken')
     end
   end
+
+  describe 'dependent destroy' do
+    it 'deletes associated rephrases when category is destroyed' do
+      category = FactoryBot.create(:category)
+      FactoryBot.create(:rephrase, category: category)
+
+      expect { category.destroy }.to change(Rephrase, :count).by(-1)
+    end
+  end
 end
