@@ -6,6 +6,11 @@ RSpec.describe Category, type: :model do
       association = described_class.reflect_on_association(:rephrases)
       expect(association.macro).to eq(:has_many)
     end
+
+    it 'has many search_logs' do
+      association = described_class.reflect_on_association(:search_logs)
+      expect(association.macro).to eq(:has_many)
+    end
   end
 
   describe 'validations' do
@@ -44,6 +49,13 @@ RSpec.describe Category, type: :model do
       FactoryBot.create(:rephrase, category: category)
 
       expect { category.destroy }.to change(Rephrase, :count).by(-1)
+    end
+
+    it 'deletes associated search_logs when category is destroyed' do
+      category = FactoryBot.create(:category)
+      FactoryBot.create(:search_log, category: category)
+
+      expect { category.destroy }.to change(SearchLog, :count).by(-1)
     end
   end
 end

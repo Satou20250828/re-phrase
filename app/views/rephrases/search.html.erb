@@ -1,0 +1,17 @@
+<h1>Re-phrase Search</h1>
+
+<%= form_with url: search_path, method: :get, local: true do |form| %>
+  <div>
+    <%= form.label :q, "Query" %>
+    <%= form.text_field :q, value: params[:q] %>
+  </div>
+  <div>
+    <%= form.label :category_id, "Category ID" %>
+    <%= form.number_field :category_id, value: params[:category_id] %>
+  </div>
+  <%= form.submit "Convert" %>
+<% end %>
+
+<% if @result_text.present? %>
+  <p id="result-text"><%= @result_text %></p>
+<% end %>

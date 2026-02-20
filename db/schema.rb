@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_02_20_130427) do
+ActiveRecord::Schema[7.2].define(version: 2026_02_20_153000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -31,12 +31,15 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_20_130427) do
 
   create_table "search_logs", force: :cascade do |t|
     t.string "query", null: false
-    t.bigint "rephrase_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["rephrase_id"], name: "index_search_logs_on_rephrase_id"
+    t.string "converted_text", null: false
+    t.integer "category_id", null: false
+    t.integer "hit_type", default: 2, null: false
+    t.boolean "safety_mode_applied", default: false, null: false
+    t.index ["category_id"], name: "index_search_logs_on_category_id"
+    t.index ["hit_type"], name: "index_search_logs_on_hit_type"
   end
 
   add_foreign_key "rephrases", "categories"
-  add_foreign_key "search_logs", "rephrases"
 end
