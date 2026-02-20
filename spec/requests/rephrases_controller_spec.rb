@@ -2,32 +2,61 @@ require "rails_helper"
 
 RSpec.describe "RephrasesController", type: :request do
   describe "GET /search" do
-    let(:category) { FactoryBot.create(:category) }
+    subject(:perform_request) { get search_path, params: params }
 
-    it "converts text and stores a search log" do
-      FactoryBot.create(:rephrase, category: category, content: "ごめん→「失礼いたしました」")
+    let(:category) { create(:category) }
+    let(:query) { "ごめん" }
+    let(:params) { { q: query, category_id: category.id } }
 
-      get search_path, params: { q: "ごめん", category_id: category.id }
+    context "when SearchLog is saved" do
+      before do
+        create(:rephrase, category: category, content: "ごめん→「失礼いたしました」")
+        perform_request
+      end
 
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include("失礼いたしました")
+      it "returns OK" do
+        expect(response).to have_http_status(:ok)
+      end
 
-      search_log = SearchLog.order(:id).last
-      expect(search_log.query).to eq("ごめん")
-      expect(search_log.converted_text).to eq("失礼いたしました")
-      expect(search_log.category_id).to eq(category.id)
-      expect(search_log.hit_type).to eq("partial")
-      expect(search_log.safety_mode_applied).to be(false)
+      it "shows converted text" do
+        expect(response.body).to include("失礼いたしました")
+      end
+
+      it "stores the query" do
+        expect(SearchLog.last&.query).to eq(query)
+      end
+
+      it "stores converted text" do
+        expect(SearchLog.last&.converted_text).to eq("失礼いたしました")
+      end
+
+      it "stores category id" do
+        expect(SearchLog.last&.category_id).to eq(category.id)
+      end
+
+      it "stores hit type" do
+        expect(SearchLog.last&.hit_type).to eq("partial")
+      end
+
+      it "stores safety mode flag" do
+        expect(SearchLog.last&.safety_mode_applied).to be(false)
+      end
     end
 
-    it "returns a response even when SearchLog save fails" do
-      FactoryBot.create(:rephrase, category: category, content: "ごめん→「失礼いたしました」")
-      allow(SearchLog).to receive(:create).and_return(SearchLog.new)
+    context "when SearchLog save fails" do
+      before do
+        create(:rephrase, category: category, content: "ごめん→「失礼いたしました」")
+        allow(SearchLog).to receive(:create).and_return(SearchLog.new)
+        perform_request
+      end
 
-      get search_path, params: { q: "ごめん", category_id: category.id }
+      it "still returns OK" do
+        expect(response).to have_http_status(:ok)
+      end
 
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include("失礼いたしました")
+      it "still shows converted text" do
+        expect(response.body).to include("失礼いたしました")
+      end
     end
   end
 end

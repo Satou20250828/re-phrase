@@ -6,6 +6,5 @@ class SearchLog < ApplicationRecord
 
   validates :query, presence: true
   validates :converted_text, presence: true
-  validates :category_id, presence: true
   validates :hit_type, presence: true
 end
