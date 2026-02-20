@@ -35,5 +35,4 @@ RSpec.describe Rephrase, type: :model do
       expect(rephrase.errors[:content]).to include("can't be blank")
     end
   end
-
 end
