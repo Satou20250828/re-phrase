@@ -1,0 +1,59 @@
+<section class="mx-auto max-w-4xl space-y-8 px-4 py-8">
+  <header class="space-y-2">
+    <h1 class="text-2xl font-bold">文章の言い換え</h1>
+    <p class="text-sm text-gray-600">入力した文章を丁寧な表現に変換します。</p>
+  </header>
+
+  <%# 言い換え実行フォーム %>
+  <%= form_with url: rephrases_path, method: :post, scope: :rephrase, class: "space-y-4 rounded-xl border bg-white p-5 shadow-sm", data: { controller: "rephrase" } do |form| %>
+    <div class="space-y-1">
+      <%= form.label :content, "原文", class: "block text-sm font-medium" %>
+      <%= form.text_area :content, rows: 5, class: "w-full rounded-lg border px-3 py-2", data: { rephrase_target: "content" } %>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-3">
+      <div class="space-y-1">
+        <%= form.label :scene, "シーン", class: "block text-sm font-medium" %>
+        <%= form.text_field :scene, class: "w-full rounded border px-3 py-2" %>
+      </div>
+      <div class="space-y-1">
+        <%= form.label :target, "相手", class: "block text-sm font-medium" %>
+        <%= form.text_field :target, class: "w-full rounded border px-3 py-2" %>
+      </div>
+      <div class="space-y-1">
+        <%= form.label :context, "状況", class: "block text-sm font-medium" %>
+        <%= form.text_field :context, class: "w-full rounded border px-3 py-2" %>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <%= form.submit "言い換える", class: "rounded-lg bg-black px-4 py-2 text-white" %>
+      <button type="button" class="rounded-lg border px-4 py-2 text-sm" data-action="rephrase#clearContent">クリア</button>
+    </div>
+  <% end %>
+
+  <%# Turboで差し替える結果表示領域 %>
+  <%= turbo_frame_tag "rephrase_result" do %>
+    <section class="rounded-xl border border-dashed bg-white p-5 text-sm text-gray-500">
+      <div class="grid gap-4 md:grid-cols-2">
+        <article class="rounded-lg border bg-gray-50 p-4">
+          <p class="text-xs font-semibold tracking-wide text-gray-500">BEFORE</p>
+          <p class="mt-2 text-sm">ここに原文が表示されます。</p>
+        </article>
+        <article class="rounded-lg border bg-gray-50 p-4">
+          <p class="text-xs font-semibold tracking-wide text-gray-500">AFTER</p>
+          <p class="mt-2 text-sm">ここに提案結果が表示されます。</p>
+        </article>
+      </div>
+    </section>
+  <% end %>
+
+  <section class="space-y-3">
+    <h2 class="text-lg font-semibold">最近の履歴</h2>
+    <div id="history_list" class="space-y-2">
+      <% @search_logs.each do |search_log| %>
+        <%= render "history_item", search_log: search_log %>
+      <% end %>
+    </div>
+  </section>
+</section>

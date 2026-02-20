@@ -1,5 +1,10 @@
 # Converts an input query into a rephrased text for a given category.
 class PhraseConverterService
+  # 既存の呼び出し口としてクラスメソッドを提供
+  def self.call(query:, category_id:)
+    new(query: query, category_id: category_id).call
+  end
+
   def initialize(query:, category_id:)
     @query = query.to_s
     @category_id = category_id
