@@ -6,7 +6,7 @@ class PhraseConverterService
   end
 
   def call
-    exact_match = scoped_rephrases.find_by(search_column => @query)
+    exact_match = scoped_rephrases.where(search_attribute.eq(@query)).first
     return build_hit_result(exact_match, :exact) if exact_match
 
     partial_match = find_partial_match
@@ -26,7 +26,11 @@ class PhraseConverterService
   end
 
   def find_partial_match
-    scoped_rephrases.where("#{search_column} LIKE ?", "%#{@query}%").first
+    scoped_rephrases.where(search_attribute.matches("%#{@query}%")).first
+  end
+
+  def search_attribute
+    Rephrase.arel_table[search_column]
   end
 
   def build_hit_result(rephrase, hit_type)
