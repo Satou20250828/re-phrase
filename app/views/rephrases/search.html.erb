@@ -13,5 +13,10 @@
 <% end %>
 
 <% if @result_text.present? %>
-  <p id="result-text"><%= @result_text %></p>
+  <section id="search-result">
+    <p id="result-text"><%= @result_text %></p>
+    <% if @safety_mode_applied %>
+      <p id="safety-mode-badge">セーフティモードが適用されました</p>
+    <% end %>
+  </section>
 <% end %>
