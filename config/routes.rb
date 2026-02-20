@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
-  root "rephrases#search"
-  get :search, to: "rephrases#search"
+  # 言い換え機能の最小構成（一覧表示 + 作成）
+  resources :rephrases, only: %i[index create]
+  root "rephrases#index"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

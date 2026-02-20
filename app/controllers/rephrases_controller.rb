@@ -1,29 +1,12 @@
-# Handles search requests and persists conversion metadata.
+# 言い換え画面の表示と作成処理の入口を提供するコントローラー
 class RephrasesController < ApplicationController
-  def search
-    return if params[:q].blank? || params[:category_id].blank?
-
-    result = PhraseConverterService.new(query: params[:q], category_id: params[:category_id]).call
-    assign_result_values(result)
-    save_search_log(result)
+  # 直近の検索履歴を表示する初期画面
+  def index
+    @search_logs = SearchLog.order(created_at: :desc).limit(10)
   end
 
-  private
-
-  def assign_result_values(result)
-    @result_text = result[:result_text]
-    @safety_mode_applied = result[:safety_mode_applied]
-    @hit_type = result[:hit_type]
-  end
-
-  def save_search_log(result)
-    SearchLog.create!(
-      query: params[:q],
-      converted_text: @result_text,
-      category_id: params[:category_id],
-      **result.slice(:hit_type, :safety_mode_applied)
-    )
-  rescue StandardError => e
-    Rails.logger.error("SearchLog persistence failed: #{e.class} #{e.message}")
+  # create実装前の仮ハンドラ
+  def create
+    head :ok
   end
 end

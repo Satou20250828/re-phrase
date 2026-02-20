@@ -1,0 +1,37 @@
+<section class="mx-auto max-w-4xl space-y-8 px-4 py-8">
+  <header class="space-y-2">
+    <h1 class="text-2xl font-bold">文章の言い換え</h1>
+    <p class="text-sm text-gray-600">入力した文章を丁寧な表現に変換します。</p>
+  </header>
+
+  <%# 言い換え実行フォーム %>
+  <%= form_with url: rephrases_path, method: :post, class: "space-y-4 rounded-lg border p-4" do |form| %>
+    <div class="space-y-1">
+      <%= form.label :query, "原文", class: "block text-sm font-medium" %>
+      <%= form.text_area :query, rows: 4, class: "w-full rounded border px-3 py-2" %>
+    </div>
+
+    <div class="space-y-1">
+      <%= form.label :category_id, "カテゴリID", class: "block text-sm font-medium" %>
+      <%= form.number_field :category_id, class: "w-full rounded border px-3 py-2" %>
+    </div>
+
+    <%= form.submit "言い換える", class: "rounded bg-black px-4 py-2 text-white" %>
+  <% end %>
+
+  <%# Turboで差し替える結果表示領域 %>
+  <%= turbo_frame_tag "rephrase_result" do %>
+    <div class="rounded-lg border border-dashed p-4 text-sm text-gray-500">
+      ここに言い換え結果が表示されます。
+    </div>
+  <% end %>
+
+  <section class="space-y-3">
+    <h2 class="text-lg font-semibold">最近の履歴</h2>
+    <div class="space-y-2">
+      <% @search_logs.each do |search_log| %>
+        <%= render "history_item", search_log: search_log %>
+      <% end %>
+    </div>
+  </section>
+</section>
