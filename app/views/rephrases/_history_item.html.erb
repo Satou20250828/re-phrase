@@ -1,9 +1,10 @@
-<article class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
+<article class="history-item flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
   <div class="flex-1 min-w-0 pr-4">
     <div class="flex items-center gap-2 mb-1">
       <span class="text-[10px] text-slate-400"><%= time_ago_in_words(search_log.created_at) %>前</span>
     </div>
-    <p class="text-xs text-slate-600 truncate"><%= search_log.query %></p>
+    <p class="original-text text-xs text-slate-600 truncate"><%= search_log.query %></p>
+    <p class="rephrased-text mt-1 text-xs text-slate-500 line-clamp-2"><%= search_log.converted_text %></p>
   </div>
   <div class="flex items-center gap-1 shrink-0">
     <button type="button" class="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">

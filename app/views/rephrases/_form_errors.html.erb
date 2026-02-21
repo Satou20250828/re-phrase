@@ -1,0 +1,32 @@
+<% has_error_message = error_message.present? %>
+<% has_field_errors = field_errors.present? && field_errors.values.any?(&:present?) %>
+<% field_labels = {
+  content: "入力文",
+  scene: "シーン",
+  target: "相手の関係性",
+  context: "状況",
+  category: "カテゴリ",
+  category_id: "カテゴリ",
+  query: "検索文",
+  converted_text: "言い換え結果",
+  hit_type: "判定種別",
+  rephrase: "言い換え"
+} %>
+
+<% if has_error_message || has_field_errors %>
+  <section class="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+    <p class="font-semibold">保存に失敗しました</p>
+    <% if has_error_message %>
+      <p class="mt-1"><%= error_message %></p>
+    <% end %>
+    <% if has_field_errors %>
+      <ul class="mt-2 list-disc pl-5 space-y-1">
+        <% field_errors.each do |attribute, messages| %>
+          <% next if messages.blank? %>
+          <% label = field_labels[attribute.to_sym] || attribute.to_s.humanize %>
+          <li><%= "#{label}: #{messages.uniq.join(', ')}" %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </section>
+<% end %>
