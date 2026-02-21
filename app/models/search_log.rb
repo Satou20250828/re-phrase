@@ -3,6 +3,7 @@ class SearchLog < ApplicationRecord
   DEFAULT_CATEGORY_NAME = "default".freeze
 
   belongs_to :category
+  alias_attribute :content, :converted_text
 
   # DBカラム未反映/認識遅延時でも enum の型解決を安定させる
   attribute :hit_type, :integer, default: 2
@@ -12,7 +13,8 @@ class SearchLog < ApplicationRecord
   before_validation :normalize_hit_type
 
   validates :query, presence: true
-  validates :converted_text, presence: true
+  validates :content, presence: true, length: { maximum: 300 }
+  validates :converted_text, presence: true, length: { maximum: 300 }
   validates :hit_type, presence: true
 
   private

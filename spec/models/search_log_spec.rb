@@ -45,15 +45,21 @@ RSpec.describe SearchLog, type: :model do
       expect(search_log.errors[:converted_text]).to include("can't be blank")
     end
 
-    it "is invalid without category_id" do
+    it "assigns default category when category_id is missing" do
       search_log = FactoryBot.build(:search_log, category_id: nil)
+      search_log.valid?
+      expect(search_log.category).to be_present
+    end
+
+    it "is invalid when converted_text exceeds 300 characters" do
+      search_log = FactoryBot.build(:search_log, converted_text: "あ" * 301)
       expect(search_log).to be_invalid
     end
 
-    it "adds a can't be blank error when category_id is missing" do
-      search_log = FactoryBot.build(:search_log, category_id: nil)
+    it "adds a too long error when converted_text exceeds 300 characters" do
+      search_log = FactoryBot.build(:search_log, converted_text: "あ" * 301)
       search_log.valid?
-      expect(search_log.errors[:category_id]).to include("can't be blank")
+      expect(search_log.errors[:converted_text]).to include("is too long (maximum is 300 characters)")
     end
   end
 end

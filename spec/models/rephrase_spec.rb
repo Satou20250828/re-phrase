@@ -34,5 +34,16 @@ RSpec.describe Rephrase, type: :model do
       rephrase.valid?
       expect(rephrase.errors[:content]).to include("can't be blank")
     end
+
+    it "is invalid when content exceeds 300 characters" do
+      rephrase = FactoryBot.build(:rephrase, content: "あ" * 301)
+      expect(rephrase).to be_invalid
+    end
+
+    it "adds a too long error when content exceeds 300 characters" do
+      rephrase = FactoryBot.build(:rephrase, content: "あ" * 301)
+      rephrase.valid?
+      expect(rephrase.errors[:content]).to include("is too long (maximum is 300 characters)")
+    end
   end
 end
