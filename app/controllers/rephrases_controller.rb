@@ -48,54 +48,62 @@ class RephrasesController < ApplicationController
     Category.find_or_create_by!(name: scene)
   end
 
-  # 言い換え結果をもとにSearchLogを作成
-  def build_search_log_with(result)
+  # 言い換え結果を分割し、各案をRephrase/SearchLogとして保存
+  def build_search_logs_with(result)
     category = resolved_category
     normalized_result_text = normalized_result_text(result[:result_text])
+    candidates = split_rephrase_candidates(normalized_result_text)
     normalized_hit_type = normalize_hit_type_value(result[:hit_type])
+    created_search_logs = []
 
     ActiveRecord::Base.transaction do
-      @rephrase = Rephrase.new(content: normalized_result_text, category: category)
-      unless @rephrase.save
-        log_validation_failure(
-          model_name: "Rephrase",
-          errors: @rephrase.errors.full_messages,
-          attributes: @rephrase.attributes.slice("content", "category_id")
-        )
-        raise ActiveRecord::RecordInvalid.new(@rephrase)
-      end
+      candidates.each do |candidate|
+        @rephrase = Rephrase.new(content: candidate, category: category)
+        unless @rephrase.save
+          log_validation_failure(
+            model_name: "Rephrase",
+            errors: @rephrase.errors.full_messages,
+            attributes: @rephrase.attributes.slice("content", "category_id")
+          )
+          raise ActiveRecord::RecordInvalid.new(@rephrase)
+        end
 
-      @search_log = SearchLog.new(
-        query: rephrase_params[:content].to_s.strip,
-        converted_text: normalized_result_text,
-        category: category,
-        hit_type: normalized_hit_type,
-        safety_mode_applied: ActiveModel::Type::Boolean.new.cast(result[:safety_mode_applied])
-      )
-      unless @search_log.save
-        log_validation_failure(
-          model_name: "SearchLog",
-          errors: @search_log.errors.full_messages,
-          attributes: @search_log.attributes.slice("query", "converted_text", "category_id", "hit_type", "safety_mode_applied")
+        @search_log = SearchLog.new(
+          query: rephrase_params[:content].to_s.strip,
+          converted_text: candidate,
+          category: category,
+          hit_type: normalized_hit_type,
+          safety_mode_applied: ActiveModel::Type::Boolean.new.cast(result[:safety_mode_applied])
         )
-        log_search_log_category_association(@search_log)
-        raise ActiveRecord::RecordInvalid.new(@search_log)
+        unless @search_log.save
+          log_validation_failure(
+            model_name: "SearchLog",
+            errors: @search_log.errors.full_messages,
+            attributes: @search_log.attributes.slice("query", "converted_text", "category_id", "hit_type", "safety_mode_applied")
+          )
+          log_search_log_category_association(@search_log)
+          raise ActiveRecord::RecordInvalid.new(@search_log)
+        end
+
+        created_search_logs << @search_log
       end
     end
 
-    @search_log
+    created_search_logs
   end
 
   def prepare_create_context
     @rephrase = nil
     @search_log = nil
+    @search_logs = []
     @db_warning_message = nil
     @error_message = nil
     @field_errors = {}
   end
 
   def process_create_result(result)
-    @search_log = build_search_log_with(result)
+    @search_logs = build_search_logs_with(result)
+    @search_log = @search_logs.first
     @rephrased_results = fetch_recent_rephrases
   rescue ActiveRecord::ActiveRecordError => e
     handle_create_persistence_error(e, result)
@@ -150,7 +158,13 @@ class RephrasesController < ApplicationController
       return mock_convert_result(content)
     end
 
-    PhraseConverterService.call(query: content, category_id: nil)
+    PhraseConverterService.call(
+      query: content,
+      category_id: nil,
+      scene: rephrase_params[:scene],
+      target: rephrase_params[:target],
+      context: rephrase_params[:context]
+    )
   rescue ActiveRecord::ActiveRecordError => e
     Rails.logger.warn("[rephrase#create] 変換時DB参照に失敗: #{e.class} - #{e.message}")
     {
@@ -218,6 +232,16 @@ class RephrasesController < ApplicationController
     return candidate if candidate.present?
 
     rephrase_params[:content].to_s
+  end
+
+  def split_rephrase_candidates(text)
+    split_items = text.to_s.split(/\n?\s*\d+[.)]?\s*(?:\[[^\]]+\]\s*)?/)
+    candidates = split_items.map { |item| item.to_s.strip }.reject(&:blank?).map do |item|
+      item.sub(/\A(?:短文|標準|フォーマル)\s*[:：]\s*/, "").strip
+    end
+
+    candidates = [text.to_s.strip] if candidates.blank?
+    candidates.first(3)
   end
 
   def normalize_hit_type_value(raw_value)

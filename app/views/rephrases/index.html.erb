@@ -75,7 +75,7 @@
           <span class="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full"><%= @search_logs.size %></span>
         </div>
       </summary>
-      <div id="history_list" class="p-4 space-y-3 border-t border-slate-200 max-h-80 overflow-y-auto">
+      <div id="history_list" data-controller="history" class="p-4 space-y-3 border-t border-slate-200 max-h-80 overflow-y-auto">
         <% @search_logs.each do |search_log| %>
           <%= render "history_item", search_log: search_log %>
         <% end %>

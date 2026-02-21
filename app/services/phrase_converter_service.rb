@@ -1,63 +1,140 @@
 # Converts an input query into a rephrased text for a given category.
 class PhraseConverterService
+  TEMPERATURE_MIN = 0.7
+  TEMPERATURE_MAX = 1.0
+
   # 既存の呼び出し口としてクラスメソッドを提供
-  def self.call(query:, category_id:)
-    new(query: query, category_id: category_id).call
+  def self.call(query:, category_id:, scene: nil, target: nil, context: nil)
+    new(query: query, category_id: category_id, scene: scene, target: target, context: context).call
   end
 
-  def initialize(query:, category_id:)
+  def initialize(query:, category_id:, scene:, target:, context:)
     @query = query.to_s
     @category_id = category_id
+    @scene = scene.to_s
+    @target = target.to_s
+    @context = context.to_s
   end
 
   def call
-    exact_match = scoped_rephrases.where(search_attribute.eq(@query)).first
-    return build_hit_result(exact_match, :exact) if exact_match
-
-    partial_match = find_partial_match
-    return build_hit_result(partial_match, :partial) if partial_match
-
-    fallback_result
+    ai_generated_result || local_generated_result
   end
 
   private
 
-  def scoped_rephrases
-    Rephrase.where(category_id: @category_id)
+  def ai_generated_result
+    return nil unless openai_available?
+
+    temperature = random_temperature
+    client = OpenAI::Client.new(access_token: ENV.fetch("OPENAI_API_KEY"))
+    response = client.chat(
+      parameters: {
+        model: ENV.fetch("OPENAI_MODEL", "gpt-4o-mini"),
+        temperature: temperature,
+        messages: ai_messages,
+        max_tokens: 500
+      }
+    )
+
+    content = response.dig("choices", 0, "message", "content").to_s
+    variants = extract_variants(content)
+    return nil if variants.empty?
+
+    build_result(format_variants(variants), temperature: temperature, safety_mode_applied: false)
+  rescue StandardError => e
+    Rails.logger.warn("[phrase_converter] AI generation failed: #{e.class} - #{e.message}")
+    nil
   end
 
-  def search_column
-    Rephrase.column_names.include?("keyword") ? :keyword : :content
+  def local_generated_result
+    variants = build_local_variants
+    build_result(format_variants(variants), temperature: random_temperature, safety_mode_applied: true)
   end
 
-  def find_partial_match
-    scoped_rephrases.where(search_attribute.matches("%#{@query}%")).first
-  end
-
-  def search_attribute
-    Rephrase.arel_table[search_column]
-  end
-
-  def build_hit_result(rephrase, hit_type)
+  def build_result(text, temperature:, safety_mode_applied:)
     {
-      result_text: extract_result_text(rephrase.content),
-      safety_mode_applied: false,
-      hit_type: hit_type
+      result_text: text,
+      safety_mode_applied: safety_mode_applied,
+      hit_type: :none,
+      metadata: {
+        category_id: @category_id,
+        temperature: temperature
+      }
     }
   end
 
-  def fallback_result
-    {
-      result_text: @query,
-      safety_mode_applied: true,
-      hit_type: :none
-    }
+  def openai_available?
+    defined?(OpenAI::Client) && ENV["OPENAI_API_KEY"].present?
   end
 
-  def extract_result_text(content)
-    value = content.to_s
-    return value unless value.include?("→")
+  def random_temperature
+    rand(TEMPERATURE_MIN..TEMPERATURE_MAX).round(2)
+  end
 
-    value.split("→", 2).last.strip.delete_prefix("「").delete_suffix("」")
+  def ai_messages
+    [
+      {
+        role: "system",
+        content: "あなたは日本語の文章言い換えアシスタントです。丁寧で自然な表現を返してください。"
+      },
+      {
+        role: "user",
+        content: build_prompt
+      }
+    ]
+  end
+
+  def build_prompt
+    <<~PROMPT
+      次の文章を、用途に合わせて言い換えてください。
+      入力された言葉をそのまま残すのではなく、文脈に合わせて語彙そのものを
+      ビジネス・丁寧な日本語へ完全に置き換えてください。
+      実行のたびに異なるニュアンス・語彙を使い、必ず3パターン提案してください。
+      3パターンは似せず、以下のトーンで明確に差別化してください。
+      1) 短文: 端的で読みやすい
+      2) 標準: 丁寧で自然
+      3) フォーマル: かしこまった敬語
+
+      入力文: #{@query}
+      シーン: #{@scene.presence || "未指定"}
+      相手との関係: #{@target.presence || "未指定"}
+      状況: #{@context.presence || "未指定"}
+
+      置換例（Few-shot）:
+      入力: こんにちわ
+      1. お世話になっております。
+      2. 平素より格別のご高配を賜り、厚く御礼申し上げます。
+      3. 突然のご連絡失礼いたします。
+
+      重要:
+      - 入力文の語句（例: こんにちわ）をそのまま出力に含めないでください。
+      - 同義・敬語表現へ語彙を置換してください。
+
+      出力形式:
+      1. [短文] ...
+      2. [標準] ...
+      3. [フォーマル] ...
+    PROMPT
+  end
+
+  def extract_variants(content)
+    content.to_s.lines.map(&:strip).filter_map do |line|
+      normalized = line.sub(/\A[-*・]\s*/, "").sub(/\A\d+[.)]\s*/, "").strip
+      normalized if normalized.present?
+    end.first(3)
+  end
+
+  def format_variants(variants)
+    variants.first(3).each_with_index.map { |v, i| "#{i + 1}. #{v}" }.join("\n")
+  end
+
+  def build_local_variants
+    openers = ["恐れ入りますが", "お手数ですが", "もしよろしければ", "差し支えなければ"]
+    actions = ["ご確認ください", "ご対応をお願いいたします", "ご共有いただけますか", "ご検討ください"]
+    closings = ["よろしくお願いいたします。", "助かります。", "ご確認のほどお願いいたします。"]
+
+    3.times.map do
+      "#{openers.sample}#{@query}について#{actions.sample} #{closings.sample}"
+    end.uniq.then { |items| items.size == 3 ? items : items.fill(items.last.to_s, items.size...3) }
   end
 end

@@ -6,8 +6,10 @@
   <%= render "rephrases/form_errors", error_message: @error_message, field_errors: @field_errors %>
 <% end %>
 
-<% if @search_log.present? %>
-  <%= turbo_stream.prepend "history_list" do %>
-    <%= render "rephrases/history_item", search_log: @search_log %>
+<% if @search_logs.present? %>
+  <% @search_logs.reverse_each do |search_log| %>
+    <%= turbo_stream.prepend "history_list" do %>
+      <%= render "rephrases/history_item", search_log: search_log %>
+    <% end %>
   <% end %>
 <% end %>
