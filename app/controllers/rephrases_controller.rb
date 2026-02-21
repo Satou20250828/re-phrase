@@ -1,5 +1,14 @@
 # 言い換え画面の表示と作成処理の入口を提供するコントローラー
 class RephrasesController < ApplicationController
+  DEFAULT_CATEGORY_NAME = "default".freeze
+  MOCK_RESULT_TEXT = "【モック】お手伝いできます。状況をもう少し詳しく教えてください。".freeze
+  MOCK_VARIATIONS = [
+    "【モックA】ご連絡ありがとうございます。\n現状を確認し、対応方針を本日中に共有いたします。進捗は30分ごとに更新します。",
+    "【モックB】恐れ入りますが、次の3点をご共有ください: 1) 発生時刻 2) 再現手順 3) 期待結果。#debug #rails",
+    "【モックC】承知しました。\"至急対応\"として扱います。特殊文字テスト: !@#$%^&*()[]{}<>/\\|~`",
+    "【モックD】結論: まず暫定回避を適用し、恒久対策は別PRで実施します。改行テスト\n- 影響範囲: 限定的\n- 優先度: 高"
+  ].freeze
+
   # 直近の検索履歴を表示する初期画面
   def index
     @search_logs = SearchLog.order(created_at: :desc).limit(10)
@@ -27,33 +36,62 @@ class RephrasesController < ApplicationController
   end
 
   # sceneをカテゴリとして扱い、存在しなければ作成してIDを返す
-  def resolved_category_id
+  def resolved_category
     scene = rephrase_params[:scene].to_s.strip
-    return Category.first_or_create!(name: "default").id if scene.blank?
+    return Category.find_or_create_by!(name: DEFAULT_CATEGORY_NAME) if scene.blank?
 
-    if scene.match?(/\A\d+\z/) && Category.exists?(scene.to_i)
-      scene.to_i
-    else
-      Category.find_or_create_by!(name: scene).id
+    if scene.match?(/\A\d+\z/)
+      category = Category.find_by(id: scene.to_i)
+      return category if category.present?
     end
+
+    Category.find_or_create_by!(name: scene)
   end
 
   # 言い換え結果をもとにSearchLogを作成
   def build_search_log_with(result)
-    category_id = resolved_category_id
-    Rephrase.create!(content: result[:result_text], category_id: category_id)
+    category = resolved_category
+    normalized_result_text = normalized_result_text(result[:result_text])
+    normalized_hit_type = normalize_hit_type_value(result[:hit_type])
 
-    SearchLog.create!(
-      query: rephrase_params[:content],
-      converted_text: result[:result_text],
-      category_id: category_id,
-      **result.slice(:hit_type, :safety_mode_applied)
-    )
+    ActiveRecord::Base.transaction do
+      @rephrase = Rephrase.new(content: normalized_result_text, category: category)
+      unless @rephrase.save
+        log_validation_failure(
+          model_name: "Rephrase",
+          errors: @rephrase.errors.full_messages,
+          attributes: @rephrase.attributes.slice("content", "category_id")
+        )
+        raise ActiveRecord::RecordInvalid.new(@rephrase)
+      end
+
+      @search_log = SearchLog.new(
+        query: rephrase_params[:content].to_s.strip,
+        converted_text: normalized_result_text,
+        category: category,
+        hit_type: normalized_hit_type,
+        safety_mode_applied: ActiveModel::Type::Boolean.new.cast(result[:safety_mode_applied])
+      )
+      unless @search_log.save
+        log_validation_failure(
+          model_name: "SearchLog",
+          errors: @search_log.errors.full_messages,
+          attributes: @search_log.attributes.slice("query", "converted_text", "category_id", "hit_type", "safety_mode_applied")
+        )
+        log_search_log_category_association(@search_log)
+        raise ActiveRecord::RecordInvalid.new(@search_log)
+      end
+    end
+
+    @search_log
   end
 
   def prepare_create_context
+    @rephrase = nil
     @search_log = nil
     @db_warning_message = nil
+    @error_message = nil
+    @field_errors = {}
   end
 
   def process_create_result(result)
@@ -64,7 +102,16 @@ class RephrasesController < ApplicationController
   end
 
   def handle_create_persistence_error(error, result)
-    Rails.logger.error("[rephrase#create] DB保存失敗: #{error.class} - #{error.message}")
+    @field_errors = extract_field_errors(error)
+    @error_message = build_user_error_message(error)
+
+    log_rephrase_error("DB保存失敗", error, payload: {
+      input_content: rephrase_params[:content].to_s,
+      resolved_scene: rephrase_params[:scene].to_s,
+      input_target: rephrase_params[:target].to_s,
+      input_context: rephrase_params[:context].to_s,
+      result_preview: result[:result_text].to_s.truncate(80)
+    })
     @db_warning_message = "データベース接続に失敗したため、結果は一時表示のみです。"
     @rephrased_results = [Rephrase.new(content: result[:result_text].to_s)]
   end
@@ -79,10 +126,16 @@ class RephrasesController < ApplicationController
 
   # 予期しない失敗時のレスポンス
   def handle_create_error(error)
-    Rails.logger.error("[rephrase#create] エラー: #{error.class} - #{error.message}")
+    log_rephrase_error("エラー", error, payload: {
+      input_content: rephrase_params[:content].to_s,
+      scene: rephrase_params[:scene].to_s,
+      target: rephrase_params[:target].to_s,
+      context: rephrase_params[:context].to_s
+    })
     @error_message = "言い換え処理に失敗しました。入力内容を確認して再試行してください。"
     @rephrased_results = []
     @search_log = nil
+    @field_errors = extract_field_errors(error)
 
     respond_to do |format|
       format.turbo_stream { render :error, status: :service_unavailable }
@@ -92,9 +145,22 @@ class RephrasesController < ApplicationController
 
   # DB接続不可でも画面確認を継続できるように言い換え結果をフォールバックする
   def safe_convert_result(content)
+    if use_mock_conversion?
+      Rails.logger.warn("[rephrase#create] mock conversion enabled. external api is bypassed.")
+      return mock_convert_result(content)
+    end
+
     PhraseConverterService.call(query: content, category_id: nil)
   rescue ActiveRecord::ActiveRecordError => e
     Rails.logger.warn("[rephrase#create] 変換時DB参照に失敗: #{e.class} - #{e.message}")
+    {
+      result_text: content.to_s,
+      safety_mode_applied: true,
+      hit_type: :none
+    }
+  rescue StandardError => e
+    Rails.logger.error("[rephrase#create] 外部API呼び出し/変換処理に失敗: #{e.class} - #{e.message}")
+    Rails.logger.error("[rephrase#create] converter_backtrace:\n#{Array(e.backtrace).first(20).join("\n")}")
     {
       result_text: content.to_s,
       safety_mode_applied: true,
@@ -107,5 +173,121 @@ class RephrasesController < ApplicationController
     Rephrase.order(created_at: :desc).limit(3).to_a
   rescue ActiveRecord::ActiveRecordError
     []
+  end
+
+  def log_rephrase_error(label, error, payload: {})
+    Rails.logger.error("[rephrase#create] #{label}: #{error.class} - #{error.message}")
+    Rails.logger.error("[rephrase#create] payload: #{payload.inspect}") if payload.present?
+
+    if error.respond_to?(:record) && error.record.respond_to?(:errors)
+      record = error.record
+      Rails.logger.error(
+        "[rephrase#create] record_invalid model=#{record.class} "\
+        "attributes=#{record.attributes.slice('id', 'content', 'category_id').inspect} "\
+        "errors=#{record.errors.full_messages.join(', ')}"
+      )
+    end
+
+    if error.is_a?(ActiveRecord::RecordInvalid)
+      Rails.logger.error("[rephrase#create] full_messages: #{error.record.errors.full_messages.join(', ')}")
+    end
+
+    if error.respond_to?(:backtrace) && error.backtrace.present?
+      Rails.logger.error("[rephrase#create] backtrace:\n#{error.backtrace.first(20).join("\n")}")
+    end
+  end
+
+  def use_mock_conversion?
+    ActiveModel::Type::Boolean.new.cast(ENV.fetch("REPHRASE_USE_MOCK", false))
+  end
+
+  def mock_convert_result(content)
+    text = content.to_s.strip
+    base = MOCK_VARIATIONS.sample || MOCK_RESULT_TEXT
+    rendered = text.present? ? "#{base}\n\n[入力原文] #{text}" : base
+
+    {
+      result_text: rendered,
+      safety_mode_applied: true,
+      hit_type: :none
+    }
+  end
+
+  def normalized_result_text(raw_text)
+    candidate = raw_text.to_s.strip
+    return candidate if candidate.present?
+
+    rephrase_params[:content].to_s
+  end
+
+  def normalize_hit_type_value(raw_value)
+    key = case raw_value
+          when Symbol
+            raw_value.to_s
+          when String
+            raw_value.strip
+          when Integer
+            SearchLog.hit_types.key(raw_value)
+          else
+            raw_value.to_s.strip
+          end
+
+    if SearchLog.hit_types.key?(key)
+      key.to_sym
+    else
+      Rails.logger.warn("[rephrase#create] invalid hit_type detected: #{raw_value.inspect}. fallback to :none")
+      :none
+    end
+  end
+
+  def log_validation_failure(model_name:, errors:, attributes:)
+    Rails.logger.error("[rephrase#create] #{model_name} 保存失敗")
+    Rails.logger.error("[rephrase#create] #{model_name}.errors.full_messages: #{errors.join(', ')}")
+    Rails.logger.error("[rephrase#create] #{model_name}.attributes: #{attributes.inspect}")
+  end
+
+  def log_search_log_category_association(search_log)
+    category = Category.find_by(id: search_log.category_id)
+    Rails.logger.error(
+      "[rephrase#create] SearchLog.belongs_to(:category) check "\
+      "category_id=#{search_log.category_id.inspect} category_exists=#{category.present?}"
+    )
+  rescue StandardError => e
+    Rails.logger.error("[rephrase#create] category association check failed: #{e.class} - #{e.message}")
+  end
+
+  def extract_field_errors(error)
+    return {} unless error.respond_to?(:record) && error.record.respond_to?(:errors)
+
+    error.record.errors.each_with_object(Hash.new { |h, k| h[k] = [] }) do |err, result|
+      result[err.attribute] << err.message
+    end
+  end
+
+  def build_user_error_message(error)
+    return "保存に失敗しました。入力値を確認してください。" if @field_errors.blank?
+
+    first_attr, messages = @field_errors.first
+    if first_attr == :base
+      messages.first.to_s
+    else
+      "#{human_field_label(first_attr)}: #{messages.first}"
+    end
+  end
+
+  def human_field_label(attr)
+    labels = {
+      content: "入力文",
+      scene: "シーン",
+      target: "相手の関係性",
+      context: "状況",
+      category: "カテゴリ",
+      category_id: "カテゴリ",
+      query: "検索文",
+      converted_text: "言い換え結果",
+      hit_type: "判定種別",
+      rephrase: "言い換え"
+    }
+    labels[attr.to_sym] || attr.to_s.humanize
   end
 end

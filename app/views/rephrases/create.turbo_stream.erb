@@ -2,6 +2,10 @@
   <%= render partial: "rephrases/rephrase_result", locals: { rephrased_results: @rephrased_results } %>
 <% end %>
 
+<%= turbo_stream.update "form_errors" do %>
+  <%= render "rephrases/form_errors", error_message: @error_message, field_errors: @field_errors %>
+<% end %>
+
 <% if @search_log.present? %>
   <%= turbo_stream.prepend "history_list" do %>
     <%= render "rephrases/history_item", search_log: @search_log %>
