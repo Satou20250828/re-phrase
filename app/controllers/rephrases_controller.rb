@@ -12,20 +12,8 @@ class RephrasesController < ApplicationController
 
   # 言い換え処理を実行し、結果と履歴をTurbo Streamで更新
   def create
-    @search_log = nil
-    @db_warning_message = nil
-    result = safe_convert_result(rephrase_params[:content])
-    result_text = result[:result_text].to_s
-
-    begin
-      @search_log = build_search_log_with(result)
-      @rephrased_results = fetch_recent_rephrases
-    rescue ActiveRecord::ActiveRecordError => e
-      Rails.logger.error("[rephrase#create] DB保存失敗: #{e.class} - #{e.message}")
-      @db_warning_message = "データベース接続に失敗したため、結果は一時表示のみです。"
-      @rephrased_results = [Rephrase.new(content: result_text)]
-    end
-
+    prepare_create_context
+    process_create_result(safe_convert_result(rephrase_params[:content]))
     respond_with_rephrase
   rescue StandardError => e
     handle_create_error(e)
@@ -61,6 +49,24 @@ class RephrasesController < ApplicationController
       category_id: category_id,
       **result.slice(:hit_type, :safety_mode_applied)
     )
+  end
+
+  def prepare_create_context
+    @search_log = nil
+    @db_warning_message = nil
+  end
+
+  def process_create_result(result)
+    @search_log = build_search_log_with(result)
+    @rephrased_results = fetch_recent_rephrases
+  rescue ActiveRecord::ActiveRecordError => e
+    handle_create_persistence_error(e, result)
+  end
+
+  def handle_create_persistence_error(error, result)
+    Rails.logger.error("[rephrase#create] DB保存失敗: #{error.class} - #{error.message}")
+    @db_warning_message = "データベース接続に失敗したため、結果は一時表示のみです。"
+    @rephrased_results = [Rephrase.new(content: result[:result_text].to_s)]
   end
 
   # Turbo Stream と通常HTMLのレスポンスを切り替え

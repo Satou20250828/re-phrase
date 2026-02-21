@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/BlockLength
 namespace :db do
   desc "DB接続診断（URLパース/認証/DB存在確認/作成試行）"
   task diagnose: :environment do
@@ -5,7 +6,7 @@ namespace :db do
     require "pg"
     require "active_record/tasks/database_tasks"
 
-    if File.exist?(Rails.root.join(".env"))
+    if Rails.root.join(".env").exist?
       File.foreach(Rails.root.join(".env")) do |line|
         entry = line.strip
         next if entry.empty? || entry.start_with?("#")
@@ -14,7 +15,9 @@ namespace :db do
         key, value = entry.split("=", 2)
         key = key.strip
         value = value.to_s.strip
-        value = value[1..-2] if (value.start_with?('"') && value.end_with?('"')) || (value.start_with?("'") && value.end_with?("'"))
+        double_quoted = value.start_with?('"') && value.end_with?('"')
+        single_quoted = value.start_with?("'") && value.end_with?("'")
+        value = value[1..-2] if double_quoted || single_quoted
         ENV[key] = value unless key.empty?
       end
     end
@@ -83,7 +86,8 @@ namespace :db do
       admin_params = connection_params.merge(dbname: "postgres")
       admin_conn = PG.connect(admin_params)
       dbname = connection_params[:dbname]
-      exists = admin_conn.exec_params("SELECT 1 FROM pg_database WHERE datname = $1 LIMIT 1", [dbname]).ntuples.positive?
+      query = "SELECT 1 FROM pg_database WHERE datname = $1 LIMIT 1"
+      exists = admin_conn.exec_params(query, [dbname]).ntuples.positive?
       admin_conn.close
 
       if exists
@@ -91,7 +95,10 @@ namespace :db do
       else
         puts "  - 未作成: DB '#{dbname}' が存在しません。作成を試行します。"
         begin
-          db_config = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: "primary").first
+          db_config = ActiveRecord::Base.configurations.configs_for(
+            env_name: Rails.env,
+            name: "primary"
+          ).first
           ActiveRecord::Tasks::DatabaseTasks.create(db_config)
           puts "  - 成功: DB '#{dbname}' を作成しました"
         rescue StandardError => e
@@ -109,3 +116,4 @@ namespace :db do
     puts "=== DB診断終了（成功） ==="
   end
 end
+# rubocop:enable Metrics/BlockLength
