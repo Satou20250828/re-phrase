@@ -29,6 +29,25 @@ class RephrasesController < ApplicationController
     handle_create_error(e)
   end
 
+  def destroy_history
+    search_log = SearchLog.find_by(id: params[:id])
+    return head :not_found unless search_log
+
+    search_log.destroy!
+    head :no_content
+  rescue StandardError => e
+    Rails.logger.error("[rephrase#destroy_history] エラー: #{e.class} - #{e.message}")
+    head :unprocessable_content
+  end
+
+  def clear_history
+    SearchLog.order(created_at: :desc).destroy_all
+    head :no_content
+  rescue StandardError => e
+    Rails.logger.error("[rephrase#clear_history] エラー: #{e.class} - #{e.message}")
+    head :unprocessable_content
+  end
+
   private
 
   # フォームから受け取る言い換え入力値
@@ -107,10 +126,15 @@ class RephrasesController < ApplicationController
 
   def process_create_result(result)
     @search_logs = build_search_logs_with(result)
+    cleanup_old_search_logs!
     @search_log = @search_logs.first
     @rephrased_results = fetch_recent_rephrases
   rescue ActiveRecord::ActiveRecordError => e
     handle_create_persistence_error(e, result)
+  end
+
+  def cleanup_old_search_logs!
+    SearchLog.order(created_at: :desc).offset(30).destroy_all
   end
 
   # rubocop:disable Metrics/AbcSize, Metrics/MethodLength

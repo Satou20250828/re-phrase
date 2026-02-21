@@ -1,6 +1,8 @@
 Rails.application.routes.draw do
   # 言い換え機能の最小構成（一覧表示 + 作成）
   resources :rephrases, only: %i[index create]
+  delete "rephrases/history/:id", to: "rephrases#destroy_history", as: :rephrase_history
+  delete "rephrases/history", to: "rephrases#clear_history", as: :clear_rephrase_history
   root "rephrases#index"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

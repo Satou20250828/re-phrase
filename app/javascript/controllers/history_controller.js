@@ -25,6 +25,39 @@ export default class extends Controller {
     }
   }
 
+  async deleteItem(event) {
+    event.preventDefault()
+
+    const itemNode = event.currentTarget.closest(".history-item")
+    if (!itemNode) return
+
+    const item = this.extractTextData(itemNode)
+    if (item) this.removeFromStorage(item)
+
+    const deleteUrl = itemNode.dataset.deleteUrl
+    if (deleteUrl) await this.sendDeleteRequest(deleteUrl)
+
+    itemNode.remove()
+    this.trimRenderedItems()
+  }
+
+  async clearAll(event) {
+    event.preventDefault()
+    if (!window.confirm("履歴をすべて削除します。よろしいですか？")) return
+
+    localStorage.removeItem(STORAGE_KEY)
+    this.listElement.querySelectorAll(".history-item").forEach((node) => node.remove())
+
+    const clearUrl = event.currentTarget.dataset.clearUrl
+    if (clearUrl) {
+      await this.sendDeleteRequest(clearUrl)
+      return
+    }
+
+    const nodesWithUrl = Array.from(this.listElement.querySelectorAll(".history-item[data-delete-url]"))
+    await Promise.all(nodesWithUrl.map((node) => this.sendDeleteRequest(node.dataset.deleteUrl)))
+  }
+
   handleMutations(mutations) {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
@@ -77,6 +110,14 @@ export default class extends Controller {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(truncated))
   }
 
+  removeFromStorage(item) {
+    const history = this.readHistory().filter((entry) => {
+      return !(entry.originalText === item.originalText && entry.rephrasedText === item.rephrasedText)
+    })
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)))
+  }
+
   readHistory() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -102,7 +143,7 @@ export default class extends Controller {
       this.expandStoredRephrasedTexts(item.rephrasedText).forEach((rephrasedText) => {
         if (existingRephrased.has(rephrasedText)) return
 
-        this.listElement.appendChild(this.buildHistoryItemElement({
+      this.listElement.appendChild(this.buildHistoryItemElement({
           originalText: item.originalText,
           rephrasedText: rephrasedText
         }))
@@ -156,10 +197,11 @@ export default class extends Controller {
     actions.className = "flex items-center gap-1 shrink-0"
     const button = document.createElement("button")
     button.type = "button"
-    button.className = "p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+    button.className = "p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+    button.dataset.action = "click->history#deleteItem"
     const icon = document.createElement("span")
     icon.className = "material-icons text-sm"
-    icon.textContent = "content_copy"
+    icon.textContent = "delete"
     button.appendChild(icon)
     actions.appendChild(button)
 
@@ -179,5 +221,28 @@ export default class extends Controller {
     if (this.element.id === "history_list") return this.element
 
     return this.element.querySelector("#history_list") || this.element
+  }
+
+  requestHeaders() {
+    const token = document.querySelector("meta[name='csrf-token']")?.content
+
+    return {
+      "X-CSRF-Token": token || "",
+      Accept: "application/json"
+    }
+  }
+
+  async sendDeleteRequest(url) {
+    if (!url) return
+
+    try {
+      await fetch(url, {
+        method: "DELETE",
+        headers: this.requestHeaders(),
+        credentials: "same-origin"
+      })
+    } catch (_error) {
+      // ネットワーク失敗時もUI操作を継続させる
+    }
   }
 }
