@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_02_20_153000) do
+ActiveRecord::Schema[7.2].define(version: 2026_02_21_121110) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -33,8 +33,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_20_153000) do
     t.string "query", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "converted_text", null: false
-    t.integer "category_id", null: false
+    t.string "converted_text", default: "", null: false
+    t.integer "category_id", default: 0, null: false
     t.integer "hit_type", default: 2, null: false
     t.boolean "safety_mode_applied", default: false, null: false
     t.index ["category_id"], name: "index_search_logs_on_category_id"
