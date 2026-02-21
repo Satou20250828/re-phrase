@@ -1,0 +1,8 @@
+<%= turbo_stream.replace "rephrase_result" do %>
+  <%= turbo_frame_tag "rephrase_result" do %>
+    <section class="rounded-xl border border-red-300 bg-red-50 p-5 text-sm text-red-700">
+      <p class="font-semibold">エラーが発生しました</p>
+      <p class="mt-2"><%= @error_message %></p>
+    </section>
+  <% end %>
+<% end %>

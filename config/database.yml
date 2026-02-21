@@ -13,18 +13,21 @@
 # gem "pg"
 #
 default: &default
+  # DATABASE_URL がある場合はこの値が最優先で使われる
+  url: <%= ENV["DATABASE_URL"] %>
   adapter: postgresql
   encoding: unicode
-  # For details on connection pooling, see Rails configuration guide
-  # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  # DATABASE_URL 未設定時のフォールバック設定
+  host: <%= ENV.fetch("DB_HOST", "/var/run/postgresql") %>
+  port: <%= ENV.fetch("DB_PORT", 5432) %>
+  username: <%= ENV.fetch("DB_USERNAME", "vscode") %>
+  password: <%= ENV["DB_PASSWORD"] %>
 
 
 development:
   <<: *default
-  database: re_phrase_development
-  username: vscode
-  host: /var/run/postgresql
+  database: <%= ENV.fetch("DB_NAME_DEVELOPMENT", "re_phrase_development") %>
 
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
@@ -58,9 +61,7 @@ development:
 # Do not set this db to the same as development or production.
 test:
   <<: *default
-  database: re_phrase_test
-  username: vscode
-  host: /var/run/postgresql
+  database: <%= ENV.fetch("DB_NAME_TEST", "re_phrase_test") %>
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is
@@ -84,6 +85,6 @@ test:
 #
 production:
   <<: *default
-  database: re_phrase_production
-  username: re_phrase
-  password: <%= ENV["RE_PHRASE_DATABASE_PASSWORD"] %>
+  database: <%= ENV.fetch("DB_NAME_PRODUCTION", "re_phrase_production") %>
+  username: <%= ENV.fetch("DB_USERNAME", "re_phrase") %>
+  password: <%= ENV["RE_PHRASE_DATABASE_PASSWORD"] || ENV["DB_PASSWORD"] %>

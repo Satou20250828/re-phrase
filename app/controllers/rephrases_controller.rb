@@ -9,6 +9,8 @@ class RephrasesController < ApplicationController
   def create
     @search_log = build_search_log
     respond_with_rephrase
+  rescue ActiveRecord::ActiveRecordError => e
+    handle_create_error(e)
   end
 
   private
@@ -48,6 +50,17 @@ class RephrasesController < ApplicationController
     respond_to do |format|
       format.turbo_stream
       format.html { redirect_to rephrases_path }
+    end
+  end
+
+  # DB接続や保存失敗などの異常時レスポンス
+  def handle_create_error(error)
+    Rails.logger.error("[rephrase#create] DBエラー: #{error.class} - #{error.message}")
+    @error_message = "データベース接続に失敗しました。時間をおいて再試行してください。"
+
+    respond_to do |format|
+      format.turbo_stream { render :error, status: :service_unavailable }
+      format.html { redirect_to rephrases_path, alert: @error_message }
     end
   end
 end
