@@ -24,6 +24,8 @@ class RephrasesController < ApplicationController
   def create
     prepare_create_context
     process_create_result(safe_convert_result(rephrase_params[:content]))
+    return render_validation_errors if @rephrase&.errors&.any?
+
     respond_with_rephrase
   rescue StandardError => e
     handle_create_error(e)
@@ -153,6 +155,15 @@ class RephrasesController < ApplicationController
     @rephrased_results = [Rephrase.new(content: result[:result_text].to_s)]
   end
   # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
+
+  def render_validation_errors
+    @search_logs = SearchLog.order(created_at: :desc).limit(10)
+
+    respond_to do |format|
+      format.turbo_stream { render :index, status: :unprocessable_entity, formats: [:html] }
+      format.html { render :index, status: :unprocessable_entity }
+    end
+  end
 
   # Turbo Stream と通常HTMLのレスポンスを切り替え
   def respond_with_rephrase
