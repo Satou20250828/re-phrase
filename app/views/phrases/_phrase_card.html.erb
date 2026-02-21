@@ -1,0 +1,29 @@
+<%# カード全体にコントローラーを適用 %>
+<div class="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all overflow-hidden" 
+     data-controller="clipboard">
+  
+  <div class="p-6">
+    <div class="flex justify-between items-center mb-3">
+      <div class="flex gap-2">
+        <span class="bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">ビジネス・丁寧</span>
+        <span class="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">推奨</span>
+      </div>
+
+      <%# コピーボタン：アクションとターゲットを設定。初期色として bg-blue-500 を付与（演出用） %>
+      <button type="button" 
+              data-action="click->clipboard#copy" 
+              data-clipboard-target="button"
+              class="p-2 bg-blue-500 text-white hover:bg-blue-600 rounded-full transition-all duration-200 flex items-center gap-1">
+        <span class="material-icons text-lg">content_copy</span>
+        <span class="text-[10px] font-bold" data-clipboard-target="label">コピーする</span>
+      </button>
+    </div>
+
+    <%# コピー元のターゲット %>
+    <% content_text = result.respond_to?(:content) ? result.content : result[:content] %>
+    <p class="text-slate-800 dark:text-slate-100 text-base leading-relaxed" 
+       data-clipboard-target="source">
+      <%= content_text %>
+    </p>
+  </div>
+</div>

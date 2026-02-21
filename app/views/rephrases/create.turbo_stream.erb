@@ -1,7 +1,9 @@
 <%= turbo_stream.replace "rephrase_result" do %>
-  <%= render "rephrases/result" %>
+  <%= render partial: "rephrases/rephrase_result", locals: { rephrased_results: @rephrased_results } %>
 <% end %>
 
-<%= turbo_stream.prepend "history_list" do %>
-  <%= render "rephrases/history_item", search_log: @search_log %>
+<% if @search_log.present? %>
+  <%= turbo_stream.prepend "history_list" do %>
+    <%= render "rephrases/history_item", search_log: @search_log %>
+  <% end %>
 <% end %>

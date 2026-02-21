@@ -1,5 +1,15 @@
 #!/usr/bin/env sh
 
+# .env がある場合は環境変数として読み込む
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+else
+  echo "[WARN] .env が見つかりません。DATABASE_URL を読み込めません。"
+fi
+
 if ! gem list foreman -i --silent; then
   echo "Installing foreman..."
   gem install foreman
@@ -12,5 +22,11 @@ export PORT="${PORT:-3000}"
 # but avoid loading until `debugger` is called
 export RUBY_DEBUG_OPEN="true"
 export RUBY_DEBUG_LAZY="true"
+
+if [ -n "${DATABASE_URL:-}" ]; then
+  echo "[INFO] DATABASE_URL is set"
+else
+  echo "[WARN] DATABASE_URL is NOT set; /var/run/postgresql へフォールバックする可能性があります"
+fi
 
 exec foreman start -f Procfile.dev "$@"
