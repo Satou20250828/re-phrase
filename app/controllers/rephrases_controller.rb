@@ -160,8 +160,8 @@ class RephrasesController < ApplicationController
     @search_logs = SearchLog.order(created_at: :desc).limit(10)
 
     respond_to do |format|
-      format.turbo_stream { render :index, status: :unprocessable_entity, formats: [:html] }
-      format.html { render :index, status: :unprocessable_entity }
+      format.turbo_stream { render :index, status: :unprocessable_content, formats: [:html] }
+      format.html { render :index, status: :unprocessable_content }
     end
   end
 
