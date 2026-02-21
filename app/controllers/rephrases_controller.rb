@@ -1,4 +1,5 @@
 # 言い換え画面の表示と作成処理の入口を提供するコントローラー
+# rubocop:disable Metrics/ClassLength
 class RephrasesController < ApplicationController
   DEFAULT_CATEGORY_NAME = "default".freeze
   MOCK_RESULT_TEXT = "【モック】お手伝いできます。状況をもう少し詳しく教えてください。".freeze
@@ -49,6 +50,7 @@ class RephrasesController < ApplicationController
   end
 
   # 言い換え結果を分割し、各案をRephrase/SearchLogとして保存
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Metrics/BlockLength
   def build_search_logs_with(result)
     category = resolved_category
     normalized_result_text = normalized_result_text(result[:result_text])
@@ -65,7 +67,7 @@ class RephrasesController < ApplicationController
             errors: @rephrase.errors.full_messages,
             attributes: @rephrase.attributes.slice("content", "category_id")
           )
-          raise ActiveRecord::RecordInvalid.new(@rephrase)
+          raise ActiveRecord::RecordInvalid, @rephrase
         end
 
         @search_log = SearchLog.new(
@@ -79,10 +81,11 @@ class RephrasesController < ApplicationController
           log_validation_failure(
             model_name: "SearchLog",
             errors: @search_log.errors.full_messages,
-            attributes: @search_log.attributes.slice("query", "converted_text", "category_id", "hit_type", "safety_mode_applied")
+            attributes: @search_log.attributes.slice("query", "converted_text", "category_id", "hit_type",
+                                                     "safety_mode_applied")
           )
           log_search_log_category_association(@search_log)
-          raise ActiveRecord::RecordInvalid.new(@search_log)
+          raise ActiveRecord::RecordInvalid, @search_log
         end
 
         created_search_logs << @search_log
@@ -91,6 +94,7 @@ class RephrasesController < ApplicationController
 
     created_search_logs
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Metrics/BlockLength
 
   def prepare_create_context
     @rephrase = nil
@@ -109,20 +113,22 @@ class RephrasesController < ApplicationController
     handle_create_persistence_error(e, result)
   end
 
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def handle_create_persistence_error(error, result)
     @field_errors = extract_field_errors(error)
     @error_message = build_user_error_message(error)
 
     log_rephrase_error("DB保存失敗", error, payload: {
-      input_content: rephrase_params[:content].to_s,
-      resolved_scene: rephrase_params[:scene].to_s,
-      input_target: rephrase_params[:target].to_s,
-      input_context: rephrase_params[:context].to_s,
-      result_preview: result[:result_text].to_s.truncate(80)
-    })
+                         input_content: rephrase_params[:content].to_s,
+                         resolved_scene: rephrase_params[:scene].to_s,
+                         input_target: rephrase_params[:target].to_s,
+                         input_context: rephrase_params[:context].to_s,
+                         result_preview: result[:result_text].to_s.truncate(80)
+                       })
     @db_warning_message = "データベース接続に失敗したため、結果は一時表示のみです。"
     @rephrased_results = [Rephrase.new(content: result[:result_text].to_s)]
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   # Turbo Stream と通常HTMLのレスポンスを切り替え
   def respond_with_rephrase
@@ -133,13 +139,14 @@ class RephrasesController < ApplicationController
   end
 
   # 予期しない失敗時のレスポンス
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def handle_create_error(error)
     log_rephrase_error("エラー", error, payload: {
-      input_content: rephrase_params[:content].to_s,
-      scene: rephrase_params[:scene].to_s,
-      target: rephrase_params[:target].to_s,
-      context: rephrase_params[:context].to_s
-    })
+                         input_content: rephrase_params[:content].to_s,
+                         scene: rephrase_params[:scene].to_s,
+                         target: rephrase_params[:target].to_s,
+                         context: rephrase_params[:context].to_s
+                       })
     @error_message = "言い換え処理に失敗しました。入力内容を確認して再試行してください。"
     @rephrased_results = []
     @search_log = nil
@@ -150,8 +157,10 @@ class RephrasesController < ApplicationController
       format.html { redirect_to rephrases_path, alert: @error_message }
     end
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   # DB接続不可でも画面確認を継続できるように言い換え結果をフォールバックする
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def safe_convert_result(content)
     if use_mock_conversion?
       Rails.logger.warn("[rephrase#create] mock conversion enabled. external api is bypassed.")
@@ -181,6 +190,7 @@ class RephrasesController < ApplicationController
       hit_type: :none
     }
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   # 画面表示用に最新の言い換え結果を取得する
   def fetch_recent_rephrases
@@ -189,6 +199,7 @@ class RephrasesController < ApplicationController
     []
   end
 
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def log_rephrase_error(label, error, payload: {})
     Rails.logger.error("[rephrase#create] #{label}: #{error.class} - #{error.message}")
     Rails.logger.error("[rephrase#create] payload: #{payload.inspect}") if payload.present?
@@ -196,8 +207,8 @@ class RephrasesController < ApplicationController
     if error.respond_to?(:record) && error.record.respond_to?(:errors)
       record = error.record
       Rails.logger.error(
-        "[rephrase#create] record_invalid model=#{record.class} "\
-        "attributes=#{record.attributes.slice('id', 'content', 'category_id').inspect} "\
+        "[rephrase#create] record_invalid model=#{record.class} " \
+        "attributes=#{record.attributes.slice('id', 'content', 'category_id').inspect} " \
         "errors=#{record.errors.full_messages.join(', ')}"
       )
     end
@@ -206,10 +217,11 @@ class RephrasesController < ApplicationController
       Rails.logger.error("[rephrase#create] full_messages: #{error.record.errors.full_messages.join(', ')}")
     end
 
-    if error.respond_to?(:backtrace) && error.backtrace.present?
-      Rails.logger.error("[rephrase#create] backtrace:\n#{error.backtrace.first(20).join("\n")}")
-    end
+    return unless error.respond_to?(:backtrace) && error.backtrace.present?
+
+    Rails.logger.error("[rephrase#create] backtrace:\n#{error.backtrace.first(20).join("\n")}")
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   def use_mock_conversion?
     ActiveModel::Type::Boolean.new.cast(ENV.fetch("REPHRASE_USE_MOCK", false))
@@ -236,7 +248,7 @@ class RephrasesController < ApplicationController
 
   def split_rephrase_candidates(text)
     split_items = text.to_s.split(/\n?\s*\d+[.)]?\s*(?:\[[^\]]+\]\s*)?/)
-    candidates = split_items.map { |item| item.to_s.strip }.reject(&:blank?).map do |item|
+    candidates = split_items.map { |item| item.to_s.strip }.compact_blank.map do |item|
       item.sub(/\A(?:短文|標準|フォーマル)\s*[:：]\s*/, "").strip
     end
 
@@ -244,6 +256,7 @@ class RephrasesController < ApplicationController
     candidates.first(3)
   end
 
+  # rubocop:disable Metrics/MethodLength
   def normalize_hit_type_value(raw_value)
     key = case raw_value
           when Symbol
@@ -263,6 +276,7 @@ class RephrasesController < ApplicationController
       :none
     end
   end
+  # rubocop:enable Metrics/MethodLength
 
   def log_validation_failure(model_name:, errors:, attributes:)
     Rails.logger.error("[rephrase#create] #{model_name} 保存失敗")
@@ -273,7 +287,7 @@ class RephrasesController < ApplicationController
   def log_search_log_category_association(search_log)
     category = Category.find_by(id: search_log.category_id)
     Rails.logger.error(
-      "[rephrase#create] SearchLog.belongs_to(:category) check "\
+      "[rephrase#create] SearchLog.belongs_to(:category) check " \
       "category_id=#{search_log.category_id.inspect} category_exists=#{category.present?}"
     )
   rescue StandardError => e
@@ -288,7 +302,7 @@ class RephrasesController < ApplicationController
     end
   end
 
-  def build_user_error_message(error)
+  def build_user_error_message(_error)
     return "保存に失敗しました。入力値を確認してください。" if @field_errors.blank?
 
     first_attr, messages = @field_errors.first
@@ -299,6 +313,7 @@ class RephrasesController < ApplicationController
     end
   end
 
+  # rubocop:disable Metrics/MethodLength
   def human_field_label(attr)
     labels = {
       content: "入力文",
@@ -314,4 +329,6 @@ class RephrasesController < ApplicationController
     }
     labels[attr.to_sym] || attr.to_s.humanize
   end
+  # rubocop:enable Metrics/MethodLength
 end
+# rubocop:enable Metrics/ClassLength

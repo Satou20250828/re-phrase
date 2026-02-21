@@ -1,4 +1,5 @@
 # Converts an input query into a rephrased text for a given category.
+# rubocop:disable Metrics/ClassLength
 class PhraseConverterService
   TEMPERATURE_MIN = 0.7
   TEMPERATURE_MAX = 1.0
@@ -22,6 +23,7 @@ class PhraseConverterService
 
   private
 
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def ai_generated_result
     return nil unless openai_available?
 
@@ -45,6 +47,7 @@ class PhraseConverterService
     Rails.logger.warn("[phrase_converter] AI generation failed: #{e.class} - #{e.message}")
     nil
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   def local_generated_result
     variants = build_local_variants
@@ -96,9 +99,9 @@ class PhraseConverterService
       3) フォーマル: かしこまった敬語
 
       入力文: #{@query}
-      シーン: #{@scene.presence || "未指定"}
-      相手との関係: #{@target.presence || "未指定"}
-      状況: #{@context.presence || "未指定"}
+      シーン: #{@scene.presence || '未指定'}
+      相手との関係: #{@target.presence || '未指定'}
+      状況: #{@context.presence || '未指定'}
 
       置換例（Few-shot）:
       入力: こんにちわ
@@ -120,7 +123,7 @@ class PhraseConverterService
   def extract_variants(content)
     content.to_s.lines.map(&:strip).filter_map do |line|
       normalized = line.sub(/\A[-*・]\s*/, "").sub(/\A\d+[.)]\s*/, "").strip
-      normalized if normalized.present?
+      normalized.presence
     end.first(3)
   end
 
@@ -129,12 +132,17 @@ class PhraseConverterService
   end
 
   def build_local_variants
-    openers = ["恐れ入りますが", "お手数ですが", "もしよろしければ", "差し支えなければ"]
-    actions = ["ご確認ください", "ご対応をお願いいたします", "ご共有いただけますか", "ご検討ください"]
+    openers = %w[恐れ入りますが お手数ですが もしよろしければ 差し支えなければ]
+    actions = %w[ご確認ください ご対応をお願いいたします ご共有いただけますか ご検討ください]
     closings = ["よろしくお願いいたします。", "助かります。", "ご確認のほどお願いいたします。"]
 
-    3.times.map do
+    variants = 3.times.map do
       "#{openers.sample}#{@query}について#{actions.sample} #{closings.sample}"
-    end.uniq.then { |items| items.size == 3 ? items : items.fill(items.last.to_s, items.size...3) }
+    end.uniq
+
+    return variants if variants.size == 3
+
+    variants.fill(variants.last.to_s, variants.size...3)
   end
 end
+# rubocop:enable Metrics/ClassLength
