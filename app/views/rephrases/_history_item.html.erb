@@ -1,4 +1,6 @@
-<article class="history-item flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
+<article class="history-item flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100"
+         data-history-id="<%= search_log.id %>"
+         data-delete-url="<%= rephrase_history_path(search_log) %>">
   <div class="flex-1 min-w-0 pr-4">
     <div class="flex items-center gap-2 mb-1">
       <span class="text-[10px] text-slate-400"><%= time_ago_in_words(search_log.created_at) %>前</span>
@@ -7,8 +9,10 @@
     <p class="rephrased-text mt-1 text-xs text-slate-500 line-clamp-2"><%= search_log.converted_text %></p>
   </div>
   <div class="flex items-center gap-1 shrink-0">
-    <button type="button" class="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
-      <span class="material-icons text-sm">content_copy</span>
+    <button type="button"
+            class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            data-action="click->history#deleteItem">
+      <span class="material-icons text-sm">delete</span>
     </button>
   </div>
 </article>

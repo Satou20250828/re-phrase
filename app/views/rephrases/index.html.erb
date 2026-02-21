@@ -67,15 +67,21 @@
   <% end %>
 
   <footer class="pt-6 pb-16">
-    <details class="group bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden" open>
+    <details class="group bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden" data-controller="history" open>
       <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-100 transition-colors list-none">
         <div class="flex items-center gap-3">
           <span class="material-icons text-slate-400">history</span>
           <span class="text-sm font-bold text-slate-600">履歴</span>
           <span class="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full"><%= @search_logs.size %></span>
         </div>
+        <button type="button"
+                class="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
+                data-action="click->history#clearAll"
+                data-clear-url="<%= clear_rephrase_history_path %>">
+          履歴をすべて削除
+        </button>
       </summary>
-      <div id="history_list" data-controller="history" class="p-4 space-y-3 border-t border-slate-200 max-h-80 overflow-y-auto">
+      <div id="history_list" class="p-4 space-y-3 border-t border-slate-200 max-h-80 overflow-y-auto">
         <% @search_logs.each do |search_log| %>
           <%= render "history_item", search_log: search_log %>
         <% end %>
