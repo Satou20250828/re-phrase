@@ -3,13 +3,31 @@ class RephrasesController < ApplicationController
   # 直近の検索履歴を表示する初期画面
   def index
     @search_logs = SearchLog.order(created_at: :desc).limit(10)
+    @rephrased_results = fetch_recent_rephrases
+  rescue StandardError => e
+    Rails.logger.error("[rephrase#index] エラー: #{e.class} - #{e.message}")
+    @search_logs = []
+    @rephrased_results = []
   end
 
   # 言い換え処理を実行し、結果と履歴をTurbo Streamで更新
   def create
-    @search_log = build_search_log
+    @search_log = nil
+    @db_warning_message = nil
+    result = safe_convert_result(rephrase_params[:content])
+    result_text = result[:result_text].to_s
+
+    begin
+      @search_log = build_search_log_with(result)
+      @rephrased_results = fetch_recent_rephrases
+    rescue ActiveRecord::ActiveRecordError => e
+      Rails.logger.error("[rephrase#create] DB保存失敗: #{e.class} - #{e.message}")
+      @db_warning_message = "データベース接続に失敗したため、結果は一時表示のみです。"
+      @rephrased_results = [Rephrase.new(content: result_text)]
+    end
+
     respond_with_rephrase
-  rescue ActiveRecord::ActiveRecordError => e
+  rescue StandardError => e
     handle_create_error(e)
   end
 
@@ -33,9 +51,9 @@ class RephrasesController < ApplicationController
   end
 
   # 言い換え結果をもとにSearchLogを作成
-  def build_search_log
+  def build_search_log_with(result)
     category_id = resolved_category_id
-    result = PhraseConverterService.call(query: rephrase_params[:content], category_id: category_id)
+    Rephrase.create!(content: result[:result_text], category_id: category_id)
 
     SearchLog.create!(
       query: rephrase_params[:content],
@@ -53,14 +71,35 @@ class RephrasesController < ApplicationController
     end
   end
 
-  # DB接続や保存失敗などの異常時レスポンス
+  # 予期しない失敗時のレスポンス
   def handle_create_error(error)
-    Rails.logger.error("[rephrase#create] DBエラー: #{error.class} - #{error.message}")
-    @error_message = "データベース接続に失敗しました。時間をおいて再試行してください。"
+    Rails.logger.error("[rephrase#create] エラー: #{error.class} - #{error.message}")
+    @error_message = "言い換え処理に失敗しました。入力内容を確認して再試行してください。"
+    @rephrased_results = []
+    @search_log = nil
 
     respond_to do |format|
       format.turbo_stream { render :error, status: :service_unavailable }
       format.html { redirect_to rephrases_path, alert: @error_message }
     end
+  end
+
+  # DB接続不可でも画面確認を継続できるように言い換え結果をフォールバックする
+  def safe_convert_result(content)
+    PhraseConverterService.call(query: content, category_id: nil)
+  rescue ActiveRecord::ActiveRecordError => e
+    Rails.logger.warn("[rephrase#create] 変換時DB参照に失敗: #{e.class} - #{e.message}")
+    {
+      result_text: content.to_s,
+      safety_mode_applied: true,
+      hit_type: :none
+    }
+  end
+
+  # 画面表示用に最新の言い換え結果を取得する
+  def fetch_recent_rephrases
+    Rephrase.order(created_at: :desc).limit(3).to_a
+  rescue ActiveRecord::ActiveRecordError
+    []
   end
 end

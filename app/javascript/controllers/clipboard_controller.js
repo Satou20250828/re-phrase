@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 // 変換結果のコピー操作と通知表示を扱うコントローラー
 export default class extends Controller {
-  static targets = ["source", "feedback", "button"]
+  static targets = ["source", "button", "label"]
 
   // 結果テキストをクリップボードへコピーする
   async copy() {
@@ -13,27 +13,50 @@ export default class extends Controller {
 
     try {
       await navigator.clipboard.writeText(text)
-      this.showFeedback("コピーしました")
+      this.showSuccessFeedback()
     } catch (_error) {
-      this.showFeedback("コピーに失敗しました")
+      this.showFailureFeedback()
     }
   }
 
-  // コピー結果を短時間表示し、元の表示へ戻す
-  showFeedback(message) {
-    if (this.hasFeedbackTarget) {
-      this.feedbackTarget.textContent = message
-      this.feedbackTarget.classList.remove("hidden")
-      setTimeout(() => this.feedbackTarget.classList.add("hidden"), 1800)
-    }
+  // 案C: スケール + リング演出で成功を通知
+  showSuccessFeedback() {
+    if (!this.hasButtonTarget || !this.hasLabelTarget) return
 
-    if (this.hasButtonTarget) {
-      const original = this.buttonTarget.dataset.originalLabel || this.buttonTarget.textContent
-      this.buttonTarget.dataset.originalLabel = original
-      this.buttonTarget.textContent = message
-      setTimeout(() => {
-        this.buttonTarget.textContent = original
-      }, 1800)
-    }
+    const button = this.buttonTarget
+    const label = this.labelTarget
+    const originalLabel = button.dataset.originalLabel || label.textContent.trim()
+    const activeClasses = ["scale-105", "ring-4", "ring-blue-300", "bg-blue-600"]
+
+    button.dataset.originalLabel = originalLabel
+    button.classList.add("transition-all", "duration-200")
+    label.textContent = "コピーしました！"
+    button.classList.add(...activeClasses)
+
+    clearTimeout(this.resetTimer)
+    this.resetTimer = setTimeout(() => {
+      label.textContent = originalLabel
+      button.classList.remove(...activeClasses)
+    }, 2000)
+  }
+
+  // 失敗時は短く文言だけ戻す
+  showFailureFeedback() {
+    if (!this.hasButtonTarget || !this.hasLabelTarget) return
+
+    const button = this.buttonTarget
+    const label = this.labelTarget
+    const originalLabel = button.dataset.originalLabel || label.textContent.trim()
+    button.dataset.originalLabel = originalLabel
+    label.textContent = "コピー失敗"
+
+    clearTimeout(this.resetTimer)
+    this.resetTimer = setTimeout(() => {
+      label.textContent = originalLabel
+    }, 1600)
+  }
+
+  disconnect() {
+    clearTimeout(this.resetTimer)
   }
 }

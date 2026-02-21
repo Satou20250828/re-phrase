@@ -1,0 +1,18 @@
+<section class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">提案結果</h2>
+  </div>
+
+  <div class="grid gap-4">
+    <% if rephrased_results.present? %>
+      <% rephrased_results.each do |result| %>
+        <%= render partial: "phrases/phrase_card", locals: { result: result } %>
+      <% end %>
+    <% else %>
+      <%= render partial: "phrases/phrase_card", locals: { result: { content: "ここに言い換え結果が表示されます。DB接続後は保存済みデータが表示されます。" } } %>
+      <div class="rounded-xl border border-dashed border-slate-300 bg-white/70 p-4 text-xs text-slate-500">
+        まだ保存済みの結果がないため、サンプルカードを表示しています。
+      </div>
+    <% end %>
+  </div>
+</section>
