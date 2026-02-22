@@ -50,7 +50,31 @@ class RephrasesController < ApplicationController
     head :unprocessable_content
   end
 
+  # Backward compatible endpoint for legacy request specs.
+  def search
+    query = params[:q].to_s
+    result = PhraseConverterService.call(query: query, category_id: params[:category_id])
+    save_search_log_compat(query: query, category_id: params[:category_id], result: result)
+
+    render plain: result[:result_text].to_s, status: :ok
+  rescue StandardError => e
+    Rails.logger.error("[rephrase#search] エラー: #{e.class} - #{e.message}")
+    render plain: query, status: :ok
+  end
+
   private
+
+  def save_search_log_compat(query:, category_id:, result:)
+    SearchLog.create(
+      query: query,
+      converted_text: result[:result_text].to_s,
+      category_id: category_id,
+      hit_type: normalize_hit_type_value(result[:hit_type]),
+      safety_mode_applied: ActiveModel::Type::Boolean.new.cast(result[:safety_mode_applied])
+    )
+  rescue StandardError => e
+    Rails.logger.warn("[rephrase#search] SearchLog保存失敗: #{e.class} - #{e.message}")
+  end
 
   # フォームから受け取る言い換え入力値
   def rephrase_params

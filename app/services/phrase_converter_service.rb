@@ -9,7 +9,7 @@ class PhraseConverterService
     new(query: query, category_id: category_id, scene: scene, target: target, context: context).call
   end
 
-  def initialize(query:, category_id:, scene:, target:, context:)
+  def initialize(query:, category_id:, scene: nil, target: nil, context: nil)
     @query = query.to_s
     @category_id = category_id
     @scene = scene.to_s
@@ -50,8 +50,21 @@ class PhraseConverterService
   # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   def local_generated_result
-    variants = build_local_variants
-    build_result(format_variants(variants), temperature: random_temperature, safety_mode_applied: true)
+    matched = matched_rephrase
+    return fallback_result unless matched
+
+    conversion_text = extract_conversion_text(matched.content)
+    hit_type = matched.content.to_s.strip == @query ? :exact : :partial
+
+    {
+      result_text: conversion_text.presence || @query,
+      safety_mode_applied: false,
+      hit_type: hit_type,
+      metadata: {
+        category_id: @category_id,
+        temperature: random_temperature
+      }
+    }
   end
 
   def build_result(text, temperature:, safety_mode_applied:)
@@ -64,6 +77,10 @@ class PhraseConverterService
         temperature: temperature
       }
     }
+  end
+
+  def fallback_result
+    build_result(@query, temperature: random_temperature, safety_mode_applied: true)
   end
 
   def openai_available?
@@ -143,6 +160,48 @@ class PhraseConverterService
     return variants if variants.size == 3
 
     variants.fill(variants.last.to_s, variants.size...3)
+  end
+
+  def matched_rephrase
+    return nil if @category_id.blank?
+
+    category_rephrases = Rephrase.where(category_id: @category_id)
+    return nil if category_rephrases.empty?
+
+    category_rephrases.find { |r| r.content.to_s.strip == @query } ||
+      category_rephrases.find { |r| extract_source_text(r.content) == @query } ||
+      category_rephrases.find { |r| partial_match?(r.content) }
+  end
+
+  def partial_match?(content)
+    source = extract_source_text(content)
+    return false if source.blank? || @query.blank?
+
+    source.include?(@query) || @query.include?(source)
+  end
+
+  def extract_source_text(content)
+    source, = split_mapping_content(content)
+    normalize_phrase(source)
+  end
+
+  def extract_conversion_text(content)
+    _, converted = split_mapping_content(content)
+    normalize_phrase(converted).presence || content.to_s.strip
+  end
+
+  def split_mapping_content(content)
+    text = content.to_s.strip
+    return [text, nil] if text.blank?
+
+    parts = text.split(/\s*(?:→|->|=>)\s*/, 2)
+    return [text, nil] if parts.size < 2
+
+    [parts[0], parts[1]]
+  end
+
+  def normalize_phrase(text)
+    text.to_s.strip.gsub(/\A[「"']+|[」"']+\z/, "").strip
   end
 end
 # rubocop:enable Metrics/ClassLength
